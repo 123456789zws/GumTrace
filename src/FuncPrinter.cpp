@@ -160,6 +160,11 @@ void FuncPrinter::syscall(FUNC_CONTEXT *func_context) {
 void FuncPrinter::before(FUNC_CONTEXT *func_context) {
     Utils::auto_snprintf(func_context->info_n, func_context->info, "call func: %s", func_context->name);
 
+    auto GumTrace = GumTrace::get_instance();
+    if (GumTrace->options & _GUM_OPTIONS_DEBUG) {
+        LOGE("call func: %s", func_context->name);
+    }
+
 #if PLATFORM_IOS
     int params_number = 0;
     std::vector<uint64_t> string_vector;
@@ -170,7 +175,7 @@ void FuncPrinter::before(FUNC_CONTEXT *func_context) {
 
     std::string func_name_str = func_context->name;
 
-    if (func_name_str == "objc_storeStrong") {
+    if (func_name_str == "objc_storeStr ong") {
         params_number = 2;
         uint64_t isa = 0;
         get_obj_isa_address(&isa, func_context->cpu_context.x[0], sizeof(isa));
@@ -284,6 +289,10 @@ void FuncPrinter::before(FUNC_CONTEXT *func_context) {
 
 void FuncPrinter::jni_before(FUNC_CONTEXT *func_context) {
     // nothing todo
+    auto GumTrace = GumTrace::get_instance();
+    if (GumTrace->options & _GUM_OPTIONS_DEBUG) {
+        LOGE("call jni func: %s", func_context->name);
+    }
 }
 
 void FuncPrinter::jni_after(FUNC_CONTEXT *func_context, GumCpuContext *curr_cpu_context) {

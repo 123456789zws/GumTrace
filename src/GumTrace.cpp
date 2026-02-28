@@ -13,7 +13,7 @@ GumTrace *GumTrace::get_instance() {
 
 GumTrace::GumTrace() {
     _stalker = gum_stalker_new();
-    gum_stalker_set_trust_threshold(_stalker, 3);
+    gum_stalker_set_trust_threshold(_stalker, 0);
     _transformer = gum_stalker_transformer_make_from_callback(transform_callback, nullptr, nullptr);
 
     callback_context_instance = CallbackContext::get_instance();
@@ -56,7 +56,7 @@ JNIEnv *GumTrace::get_run_time_env() {
 
 void GumTrace::callout_callback(GumCpuContext *cpu_context, gpointer user_data) {
     auto self = get_instance();
-    auto callback_ctx = (CALLBACK_CTX *) (user_data);
+    auto callback_ctx = (CALLBACK_CTX *)user_data;
     char *buff = self->buffer;
     int &buff_n = self->buffer_offset;
 
@@ -124,6 +124,7 @@ void GumTrace::callout_callback(GumCpuContext *cpu_context, gpointer user_data) 
 
     bool is_write = false;
     bool is_first_print = true;
+    uintptr_t mem_r_addr = 0x0;
     for (int i = 0; i < callback_ctx->instruction_detail.arm64.op_count; i++) {
         cs_arm64_op &op = callback_ctx->instruction_detail.arm64.operands[i];
         __uint128_t reg_value = 0;
@@ -212,6 +213,7 @@ void GumTrace::callout_callback(GumCpuContext *cpu_context, gpointer user_data) 
             }
             if (flag) {
                 uintptr_t read_address = base + index + op.mem.disp;
+                mem_r_addr = read_address;
                 Utils::append_string(buff, buff_n, "mem_r=0x");
                 Utils::append_uint64_hex(buff, buff_n, read_address);
                 Utils::append_char(buff, buff_n, ' ');
@@ -286,13 +288,11 @@ void GumTrace::callout_callback(GumCpuContext *cpu_context, gpointer user_data) 
             }
 #endif
 
-
         }
     }
 
-
     self->trace_flash++;
-    if (self->trace_flash > 100000) {
+    if (self->options & _GUM_OPTIONS_DEBUG) {
         if (buff_n > 0) {
             self->trace_file.write(buff, buff_n);
             buff_n = 0;
@@ -300,6 +300,16 @@ void GumTrace::callout_callback(GumCpuContext *cpu_context, gpointer user_data) 
 
         self->trace_file.flush();
         self->trace_flash = 0;
+    } else {
+        if (self->trace_flash > 100000) {
+            if (buff_n > 0) {
+                self->trace_file.write(buff, buff_n);
+                buff_n = 0;
+            }
+
+            self->trace_file.flush();
+            self->trace_flash = 0;
+        }
     }
 }
 
@@ -338,7 +348,7 @@ const std::string *GumTrace::in_range_module(size_t address) {
         size_t base = module_map.at("base");
         size_t size = module_map.at("size");
         size_t end = base + size;
-        if (address >= base && address < end) {
+        if (address >= base && address <= end) {
             last_module_cache.name = &pair.first;
             last_module_cache.base = base;
             last_module_cache.end = end;

@@ -6,7 +6,7 @@
 #define GUMTRACE_CALLBACKCONTEXT_H
 #include "Utils.h"
 
-#define CALLBACK_CTX_SIZE 10240
+#define CALLBACK_CTX_SIZE 102400
 
 struct CALLBACK_CTX {
     const char* module_name;

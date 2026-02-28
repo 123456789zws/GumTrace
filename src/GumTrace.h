@@ -13,6 +13,14 @@ struct REG_LIST {
     arm64_reg regs[31] = {};
 };
 
+
+typedef uint GUM_OPTIONS;
+
+typedef enum {
+    _GUM_OPTIONS_NOTHING = 0,
+    _GUM_OPTIONS_DEBUG = 1 << 0
+} _GUM_OPTIONS;
+
 #define BUFFER_SIZE (1024 * 1024 * 1)
 
 struct FUNC_CONTEXT {
@@ -59,8 +67,14 @@ public:
         size_t end;
     } last_module_cache;
 
+    GUM_OPTIONS options;
+
     std::unordered_map<size_t, std::string> svc_func_maps;
     std::unordered_map<size_t, std::string> func_fds;
+
+    uintptr_t atomic_addr = 0;
+    int atomic_width = 0;
+    uintptr_t atomic_counter = 10;
 
 #if PLATFORM_ANDROID
     JNIEnv *get_run_time_env();

@@ -104,6 +104,10 @@ static const std::unordered_map<std::string, BeforeFuncConfig> func_configs = {
     {"strstr", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},
     {"strlen", {PARAMS_NUMBER_ONE, {STR_INDEX_ZERO}, {}}},
     {"__strlen_chk", {PARAMS_NUMBER_ONE, {STR_INDEX_ZERO}, {}}},
+    {"__strlen_aarch64", {PARAMS_NUMBER_ONE, {STR_INDEX_ZERO}, {}}},
+    {"strcmp", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},
+    {"strncmp", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},
+    {"__strncmp_aarch64", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},
     {"strcpy", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},
     {"__strcpy_chk", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},
     {"strncpy", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},
@@ -129,13 +133,17 @@ static const std::unordered_map<std::string, BeforeFuncConfig> func_configs = {
     // 内存操作
     {"memcpy", {PARAMS_NUMBER_THREE, {}, {{HEX_INDEX_ONE, HEX_INDEX_TWO}}}},
     {"__memcpy_chk", {PARAMS_NUMBER_THREE, {}, {{HEX_INDEX_ONE, HEX_INDEX_TWO}}}},
+    {"__memcpy_aarch64_simd", {PARAMS_NUMBER_THREE, {}, {{HEX_INDEX_ONE, HEX_INDEX_TWO}}}},
     {"memmove", {PARAMS_NUMBER_THREE, {}, {{HEX_INDEX_ONE, HEX_INDEX_TWO}}}},
     {"__memmove_chk", {PARAMS_NUMBER_THREE, {}, {{HEX_INDEX_ONE, HEX_INDEX_TWO}}}},
     {"memset", {PARAMS_NUMBER_THREE, {}, {}}},
     {"__memset_chk", {PARAMS_NUMBER_THREE, {}, {}}},
+    {"__memset_aarch64", {PARAMS_NUMBER_THREE, {}, {}}},
     {"memmem", {PARAMS_NUMBER_FOUR, {}, {{HEX_INDEX_ZERO, HEX_INDEX_ONE}, {HEX_INDEX_TWO, HEX_INDEX_THREE}}}},
     {"memcmp", {PARAMS_NUMBER_THREE, {}, {{HEX_INDEX_ZERO, HEX_INDEX_TWO}, {HEX_INDEX_ONE, HEX_INDEX_TWO}}}},
+    {"__memcmp_aarch64", {PARAMS_NUMBER_THREE, {}, {{HEX_INDEX_ZERO, HEX_INDEX_TWO}, {HEX_INDEX_ONE, HEX_INDEX_TWO}}}},
     {"memchr", {PARAMS_NUMBER_THREE, {STR_INDEX_ZERO}, {}}},
+    {"__memchr_aarch64", {PARAMS_NUMBER_THREE, {STR_INDEX_ZERO}, {}}},
 
     // 文件操作
     {"fopen", {PARAMS_NUMBER_TWO, {STR_INDEX_ZERO, STR_INDEX_ONE}, {}}},

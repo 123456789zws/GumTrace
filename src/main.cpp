@@ -9,12 +9,12 @@
 gboolean module_symbols_cb(const GumSymbolDetails * details, gpointer user_data) {
     auto *instance = GumTrace::get_instance();
     instance->func_maps[details->address] = details->name;
-    if (details->is_global) {
-        size_t global_addr = gum_module_find_global_export_by_name(details->name);
-        if (global_addr > 0) {
-            instance->func_maps[global_addr] = details->name;
-        }
-    }
+    // if (details->is_global) {
+    //     size_t global_addr = gum_module_find_global_export_by_name(details->name);
+    //     if (global_addr > 0) {
+    //         instance->func_maps[global_addr] = details->name;
+    //     }
+    // }
 
     return true;
 }
@@ -30,19 +30,39 @@ gboolean module_dependency_cb (const GumDependencyDetails * details, gpointer us
 gboolean module_enumerate (GumModule * module, gpointer user_data) {
     auto instance = GumTrace::get_instance();
     const char *module_name = gum_module_get_name(module);
-    if (instance->modules.count(module_name) <= 0) {
+
+    auto module_path = gum_module_get_path(module);
+    if (strncmp(module_path, "/system/", 8) == 0 || strncmp(module_path, "/system_ext/", 12) == 0  ||
+        strncmp(module_path, "/apex/", 6) == 0 || strncmp(module_path, "/vendor/", 8) == 0 ||
+        strstr(module_path, "libGumTrace.so") != nullptr || strstr(module_path, ".odex") != nullptr ||
+        strstr(module_path, "memfd") != nullptr) {
         gum_stalker_exclude(instance->_stalker, gum_module_get_range(module));
+    } else {
+        if (instance->modules.count(module_name) == 0) {
+            auto &module_map = instance->modules[module_name];
+            auto *gum_module_range = gum_module_get_range(module);
+            module_map ["base"] = gum_module_range->base_address;
+            module_map ["size"] = gum_module_range->size;
+
+            LOGE("module_enumerate %s %s %lu %lu", module_name, module_path, gum_module_range->base_address, gum_module_range->size);
+        }
     }
+
+    // if (instance->modules.count(module_name) <= 0) {
+        // gum_stalker_exclude(instance->_stalker, gum_module_get_range(module));
+    // }
 
     return true;
 }
 
 extern "C" __attribute__((visibility("default")))
-void init(const char *module_names, char *trace_file_path, int thread_id) {
+void init(const char *module_names, char *trace_file_path, int thread_id, GUM_OPTIONS options) {
 
     gum_init();
 
     GumTrace *instance = GumTrace::get_instance();
+    instance->options = options;
+
     auto module_names_vector = Utils::str_split(module_names, ',');
     for (const auto &module_name: module_names_vector) {
         auto &module_map = instance->modules[module_name];
@@ -101,21 +121,23 @@ void* thread_function(void* arg) {
 
     while (true) {
         if (instance->trace_file.is_open()) {
-            struct stat stat_buf;
-            int ret = stat(instance->trace_file_path, &stat_buf);
+            if (!(instance->options & _GUM_OPTIONS_DEBUG)) {
+                struct stat stat_buf;
+                int ret = stat(instance->trace_file_path, &stat_buf);
 
-            if (ret == 0) {
-                off_t growth = stat_buf.st_size - last_size;
-                off_t growth_mb = growth / (1024 * 1024);
-                off_t size_gb = stat_buf.st_size / (1024 * 1024 * 1024);
+                if (ret == 0) {
+                    off_t growth = stat_buf.st_size - last_size;
+                    off_t growth_mb = growth / (1024 * 1024);
+                    off_t size_gb = stat_buf.st_size / (1024 * 1024 * 1024);
 
-                LOGE("每20秒新增：%ldMB 当前文件大小：%ldGB",
-                     growth_mb, size_gb);
-                last_size = stat_buf.st_size;
-            } else {
-                LOGE("stat 失败，错误码：%d，错误信息：%s",
-                     errno, strerror(errno));
-                LOGE("文件路径：%s", instance->trace_file_path);
+                    LOGE("每20秒新增：%ldMB 当前文件大小：%ldGB",
+                         growth_mb, size_gb);
+                    last_size = stat_buf.st_size;
+                } else {
+                    LOGE("stat 失败，错误码：%d，错误信息：%s",
+                         errno, strerror(errno));
+                    LOGE("文件路径：%s", instance->trace_file_path);
+                }
             }
 
             instance->trace_file.flush();
@@ -124,7 +146,11 @@ void* thread_function(void* arg) {
             break;
         }
 
-        sleep(20);
+        if (instance->options & _GUM_OPTIONS_DEBUG) {
+            usleep(1000);
+        } else {
+            usleep(1000 * 1000 * 20);
+        }
     }
 
     return nullptr;

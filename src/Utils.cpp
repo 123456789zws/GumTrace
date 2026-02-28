@@ -172,9 +172,10 @@ std::vector<std::string> Utils::str_split(const std::string& s, char symbol) {
 }
 
 bool Utils::is_lse(cs_insn *insn) {
-    if (insn == nullptr) return false;
+    if (insn == nullptr) return false; // 防御空指针
 
     switch (insn->id) {
+        // -------------------------- 1. 独占加载/存储指令（原有基础上无新增，保持不变） --------------------------
         case ARM64_INS_LDAXR:
         case ARM64_INS_LDAXP:
         case ARM64_INS_LDAXRB:
@@ -192,12 +193,127 @@ bool Utils::is_lse(cs_insn *insn) {
         case ARM64_INS_STLXRB:
         case ARM64_INS_STLXRH:
 
-            return true;
+        // -------------------------- 1.1 Load-Acquire / Store-Release --------------------------
+        case ARM64_INS_LDARB:
+        case ARM64_INS_LDAR:
+        case ARM64_INS_LDARH:
+        case ARM64_INS_STLR:
+        case ARM64_INS_STLRB:
+        case ARM64_INS_STLRH:
 
+        // -------------------------- 1.2 Swap --------------------------
+        case ARM64_INS_SWP:
+        case ARM64_INS_SWPB:
+        case ARM64_INS_SWPH:
+        case ARM64_INS_SWPL:
+
+        // -------------------------- 1.3 Pointer Authentication (PAC) --------------------------
+        // case ARM64_INS_PACIASP:
+        // case ARM64_INS_AUTIASP:
+        // case ARM64_INS_PACIBSP:
+        // case ARM64_INS_AUTIBSP:
+        // case ARM64_INS_PACIA:
+        // case ARM64_INS_AUTIA:
+        // case ARM64_INS_PACIB:
+        // case ARM64_INS_AUTIB:
+        // case ARM64_INS_PACDA:
+        // case ARM64_INS_AUTDA:
+        // case ARM64_INS_PACDB:
+        // case ARM64_INS_AUTDB:
+        // case ARM64_INS_PACGA:
+        // case ARM64_INS_XPACLRI:
+
+            return true; // 属于原子指令，需要跳过跟踪
+
+        default:
+            return false; // 非原子指令，正常跟踪
+    }
+}
+
+bool Utils::is_exclusive_load(cs_insn *insn) {
+    if (insn == nullptr) return false;
+    
+    switch (insn->id) {
+        case ARM64_INS_LDXR:
+        case ARM64_INS_LDXRB:
+        case ARM64_INS_LDXRH:
+        case ARM64_INS_LDAXR:
+        case ARM64_INS_LDAXRB:
+        case ARM64_INS_LDAXRH:
+        case ARM64_INS_LDXP:
+        case ARM64_INS_LDAXP:
+        case ARM64_INS_STLXR:
+        case ARM64_INS_STLXRB:
+        case ARM64_INS_STLXRH:
+        case ARM64_INS_STLXP:
+        case ARM64_INS_STXR:
+        case ARM64_INS_STXRB:
+        case ARM64_INS_STXRH:
+        case ARM64_INS_STXP:
+            return true;
         default:
             return false;
     }
 }
+
+int Utils::get_data_width(cs_insn *insn, cs_arm64 *arm64) {
+    if (!insn || !arm64) return 0;
+    
+    switch (insn->id) {
+        case ARM64_INS_LDARB:
+        case ARM64_INS_LDAXRB:
+        case ARM64_INS_LDXRB:
+        case ARM64_INS_STXRB:
+        case ARM64_INS_STLXRB:
+        case ARM64_INS_STLRB:
+        case ARM64_INS_SWPB:
+        case ARM64_INS_CASB:
+        case ARM64_INS_CASALB:
+        case ARM64_INS_CASAB:
+        case ARM64_INS_LDADDB:
+        case ARM64_INS_LDADDLB:
+        case ARM64_INS_STADDB:
+        case ARM64_INS_LDEORB:
+        case ARM64_INS_STEORB:
+            return 1;
+            
+        case ARM64_INS_LDAXRH:
+        case ARM64_INS_LDXRH:
+        case ARM64_INS_STXRH:
+        case ARM64_INS_STLXRH:
+        case ARM64_INS_LDARH:
+        case ARM64_INS_STLRH:
+        case ARM64_INS_SWPH:
+        case ARM64_INS_CASH:
+        case ARM64_INS_CASALH:
+        case ARM64_INS_CASAH:
+        case ARM64_INS_LDADDH:
+        case ARM64_INS_LDADDLH:
+        case ARM64_INS_STADDH:
+        case ARM64_INS_LDEORH:
+        case ARM64_INS_STEORH:
+            return 2;
+    }
+
+    int reg_op_idx = 0;
+    switch (insn->id) {
+        case ARM64_INS_STXR:
+        case ARM64_INS_STXP:
+        case ARM64_INS_STLXR:
+        case ARM64_INS_STLXP:
+            reg_op_idx = 1;
+            break;
+    }
+    
+    if (reg_op_idx < arm64->op_count) {
+        arm64_reg reg = arm64->operands[reg_op_idx].reg;
+        if ((reg >= ARM64_REG_W0 && reg <= ARM64_REG_W30) || reg == ARM64_REG_WZR || reg == ARM64_REG_WSP) return 4;
+        if ((reg >= ARM64_REG_X0 && reg <= ARM64_REG_X28) || reg == ARM64_REG_XZR || reg == ARM64_REG_SP || reg == ARM64_REG_FP || reg == ARM64_REG_LR) return 8;
+    }
+    
+    return 8;
+}
+
 
 bool Utils::get_register_value(arm64_reg reg, _GumArm64CpuContext *ctx, __uint128_t &value) {
     if (reg >= ARM64_REG_W0 && reg <= ARM64_REG_W30) {
